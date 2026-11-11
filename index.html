@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Requisition Slip — Demo</title>
+<meta name="description" content="A single-file, client-side requisition slip generator with auto amount-in-words, print and PDF export. Demo with fictional data.">
+<meta name="robots" content="noindex, nofollow">
+<style>
+  html, body { margin: 0; padding: 0; background: #eef3f4; }
+  .demo-note {
+    font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+    font-size: 12.5px; text-align: center; padding: 9px 12px;
+    background: #182428; color: #e6eef0; letter-spacing: 0.3px;
+  }
+</style>
+</head>
+<body>
+<div class="demo-note">Live demo &middot; all data shown is fictional &middot; nothing you type is stored or sent anywhere</div>
+<!-- ===================================================================
+     AI REQUISITION SLIP — Demo
+     Single-file embeddable widget. Paste this entire block into an
+     Elementor "Custom HTML" widget. No external build step required.
+     CDN deps: jsPDF + html2canvas (for "Download PDF").
+=================================================================== -->
+<div id="ars-root">
+  <style>
+    #ars-root, #ars-root * {
+      box-sizing: border-box;
+    }
+    #ars-root {
+      --accent: #2596be;
+      --accent-dark: #19708e;
+      --accent-pale: #eaf5f9;
+      --ink: #182428;
+      --ink-soft: #5b6b72;
+      --line: #c9d6da;
+      --line-soft: #e3ebed;
+      --paper: #ffffff;
+      --bg: #eef3f4;
+      --danger: #c0524a;
+      font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      color: var(--ink) !important;
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 24px 16px 60px;
+      background: var(--bg);
+    }
+    /* Force every plain text element inside the widget to inherit our
+       colors regardless of the host theme's global h1/h2/p/input rules. */
+    #ars-root h1, #ars-root h2, #ars-root h3, #ars-root p, #ars-root span,
+    #ars-root div, #ars-root label { color: inherit; }
+
+    /* ---------- Glass card shell ---------- */
+    .ars-card {
+      background: rgba(255,255,255,0.55);
+      border: 1px solid rgba(255,255,255,0.6);
+      border-radius: 0;
+      box-shadow: 0 8px 32px rgba(20,60,75,0.12);
+      backdrop-filter: blur(18px) saturate(160%);
+      -webkit-backdrop-filter: blur(18px) saturate(160%);
+      overflow: hidden;
+    }
+
+    /* ---------- Header ---------- */
+    .ars-head {
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%) !important;
+      padding: 24px 28px 18px;
+      position: relative;
+      border-radius: 0;
+    }
+    .ars-head-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .ars-company {
+      font-size: 19px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      margin: 0;
+      color: #ffffff !important;
+    }
+    .ars-subtitle {
+      font-size: 12.5px;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      margin: 3px 0 0;
+      font-weight: 500;
+      color: rgba(255,255,255,0.88) !important;
+    }
+    .ars-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,0.18);
+      border: 1px solid rgba(255,255,255,0.4);
+      border-radius: 0;
+      padding: 5px 12px 5px 9px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+      color: #ffffff !important;
+      backdrop-filter: blur(6px);
+    }
+    .ars-badge svg { width: 13px; height: 13px; flex-shrink: 0; }
+    .ars-formtitle {
+      margin-top: 14px;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      border-top: 1px solid rgba(255,255,255,0.3);
+      padding-top: 10px;
+      color: rgba(255,255,255,0.95) !important;
+    }
+
+    /* ---------- Body ---------- */
+    .ars-body { padding: 24px 28px 8px; }
+
+    /* ---------- Primary fields (always visible) ---------- */
+    .ars-primary-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px 16px;
+    }
+    .ars-field { display: flex; flex-direction: column; gap: 5px; }
+    .ars-field label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--ink-soft) !important;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .ars-field input, .ars-field select {
+      border: 1px solid var(--line);
+      border-radius: 0;
+      padding: 9px 11px;
+      font-size: 14px;
+      color: var(--ink) !important;
+      background: rgba(255,255,255,0.7);
+      font-family: inherit;
+      width: 100%;
+    }
+    .ars-field input:focus, .ars-field select:focus, .ars-row input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-pale);
+    }
+
+    /* ---------- Advanced fields toggle ---------- */
+    .ars-advanced-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      margin: 16px 0 0;
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--accent-dark) !important;
+      font-weight: 600;
+      font-size: 12.5px;
+      padding: 8px 14px;
+      border-radius: 0;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .ars-advanced-toggle:hover { background: var(--accent-pale); }
+    .ars-advanced-toggle svg {
+      width: 13px; height: 13px;
+      transition: transform 0.18s ease;
+    }
+    .ars-advanced-toggle.open svg { transform: rotate(180deg); }
+
+    .ars-advanced-panel {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 14px 16px;
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      transition: max-height 0.22s ease, opacity 0.18s ease, margin 0.22s ease;
+      margin-top: 0;
+    }
+    .ars-advanced-panel.open {
+      max-height: 200px;
+      opacity: 1;
+      margin-top: 14px;
+    }
+
+    /* ---------- Particulars table ---------- */
+    .ars-table-wrap { overflow-x: auto; margin-top: 22px; }
+    table.ars-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+      min-width: 640px;
+    }
+    .ars-table thead th {
+      background: var(--accent-pale);
+      color: var(--accent-dark) !important;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 700;
+      text-align: left;
+      padding: 10px 10px;
+      border-bottom: 2px solid var(--accent);
+      white-space: nowrap;
+    }
+    .ars-table thead th.num { text-align: right; }
+    .ars-table tbody td {
+      border-bottom: 1px solid var(--line-soft);
+      padding: 6px 8px;
+      vertical-align: top;
+    }
+    .ars-table tbody tr:hover { background: rgba(255,255,255,0.5); }
+    .ars-row input {
+      border: 1px solid transparent;
+      border-radius: 0;
+      padding: 8px 8px;
+      font-size: 13.5px;
+      width: 100%;
+      font-family: inherit;
+      background: transparent;
+      color: var(--ink) !important;
+    }
+    .ars-row input:hover, .ars-row input:focus { border-color: var(--line); background: rgba(255,255,255,0.7); }
+    .ars-row input.amt, .ars-row input.cash { text-align: right; }
+    td.ars-rownum { color: var(--ink-soft) !important; font-size: 12px; text-align: center; padding-top: 12px; width: 26px; }
+    td.ars-delcell { width: 30px; text-align: center; }
+    .ars-delbtn {
+      border: none; background: none; cursor: pointer;
+      color: #aebcc1; font-size: 17px; line-height: 1;
+      padding: 4px 6px;
+      border-radius: 0;
+      transition: color 0.15s, background 0.15s;
+    }
+    .ars-delbtn:hover { color: var(--danger); background: rgba(192,82,74,0.08); }
+
+    .ars-addrow {
+      margin: 12px 0 4px;
+      border: 1.5px dashed var(--line);
+      background: rgba(255,255,255,0.5);
+      color: var(--accent-dark) !important;
+      font-weight: 600;
+      font-size: 13px;
+      padding: 9px 16px;
+      border-radius: 0;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: inherit;
+    }
+    .ars-addrow:hover { background: var(--accent-pale); border-color: var(--accent); }
+
+    /* ---------- Totals ---------- */
+    .ars-totals-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 4px;
+      padding: 14px 8px 4px;
+      border-top: 2px solid var(--accent);
+    }
+    .ars-total-box { text-align: right; min-width: 220px; }
+    .ars-total-label { font-size: 12px; color: var(--ink-soft) !important; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; }
+    .ars-total-value { font-size: 24px; font-weight: 700; color: var(--accent-dark) !important; margin-top: 2px; }
+
+    .ars-inwords {
+      margin: 18px 0 6px;
+      padding: 12px 14px;
+      background: rgba(234,245,249,0.65);
+      border-radius: 0;
+      border: 1px solid #cfe6ee;
+    }
+    .ars-inwords-label {
+      font-size: 11px; font-weight: 700; color: var(--accent-dark) !important;
+      text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .ars-inwords-label svg { width: 13px; height: 13px; }
+    .ars-inwords-text { font-size: 14.5px; font-style: italic; color: var(--ink) !important; min-height: 20px; }
+
+    /* ---------- Signatures ---------- */
+    .ars-sign-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      margin: 30px 0 12px;
+    }
+    .ars-sign-block { text-align: left; }
+    .ars-sign-space {
+      height: 76px;
+      border-bottom: 1px solid var(--ink);
+      margin-bottom: 8px;
+    }
+    .ars-sign-label { font-size: 11px; font-weight: 700; letter-spacing: 0.6px; color: var(--ink-soft) !important; text-transform: uppercase; }
+
+    /* ---------- Footer / action bar ---------- */
+    .ars-actionbar {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      padding: 16px 28px 22px;
+      background: rgba(250,252,252,0.6);
+      border-top: 1px solid var(--line-soft);
+      flex-wrap: wrap;
+    }
+    .ars-btn {
+      border: none;
+      border-radius: 0;
+      padding: 10px 18px;
+      font-size: 13.5px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-family: inherit;
+      transition: filter 0.15s, transform 0.05s, background 0.15s;
+    }
+    .ars-btn:active { transform: translateY(1px); }
+    .ars-btn svg { width: 15px; height: 15px; }
+    .ars-btn.secondary { background: rgba(255,255,255,0.6); border: 1px solid var(--line); color: var(--ink) !important; }
+    .ars-btn.secondary:hover { background: #fff; }
+    .ars-btn.primary { background: var(--accent); color: #fff !important; }
+    .ars-btn.primary:hover { background: var(--accent-dark); }
+    .ars-btn.ghost { background: transparent; color: var(--ink-soft) !important; }
+    .ars-btn.ghost:hover { color: var(--danger) !important; }
+    .ars-btn[disabled] { opacity: 0.55; cursor: not-allowed; }
+
+    .ars-status {
+      font-size: 12px;
+      color: var(--ink-soft) !important;
+      align-self: center;
+      margin-right: auto;
+      padding-left: 4px;
+    }
+    .ars-status.saved { color: #2c8a52 !important; }
+
+    /* ---------- Responsive ---------- */
+    @media (max-width: 720px) {
+      #ars-root { padding: 14px 8px 40px; }
+      .ars-head { padding: 18px 16px 14px; }
+      .ars-head-top { flex-direction: column; gap: 10px; }
+      .ars-company { font-size: 16px; }
+      .ars-badge { align-self: flex-start; }
+      .ars-body { padding: 18px 14px 6px; }
+      .ars-primary-grid { grid-template-columns: 1fr; }
+      .ars-advanced-panel { grid-template-columns: 1fr; }
+      .ars-advanced-panel.open { max-height: 320px; }
+      .ars-advanced-toggle { width: 100%; justify-content: space-between; }
+      .ars-sign-row { grid-template-columns: 1fr; gap: 30px; margin: 26px 0 8px; }
+      .ars-actionbar { flex-direction: column; align-items: stretch; padding: 14px 14px 18px; }
+      .ars-actionbar .ars-btn { width: 100%; justify-content: center; }
+      .ars-status { width: 100%; margin-bottom: 4px; text-align: center; }
+      .ars-total-box { min-width: 0; }
+      .ars-field input, .ars-field select, .ars-row input { font-size: 16px; }
+    }
+
+    /* ---------- Small phones: stack the particulars table as cards ---------- */
+    @media (max-width: 560px) {
+      .ars-table-wrap { overflow-x: visible; }
+      table.ars-table { min-width: 0; }
+      table.ars-table thead { display: none; }
+      table.ars-table, table.ars-table tbody, table.ars-table tr, table.ars-table td {
+        display: block; width: 100%;
+      }
+      .ars-row {
+        border: 1px solid var(--line-soft);
+        background: rgba(255,255,255,0.45);
+        margin-bottom: 10px;
+        padding: 10px 10px 6px;
+        position: relative;
+      }
+      .ars-row td { border-bottom: none; padding: 4px 0; }
+      .ars-row td.ars-rownum {
+        position: absolute; top: 8px; right: 40px;
+        width: auto; padding: 0; text-align: right;
+      }
+      .ars-row td.ars-delcell {
+        position: absolute; top: 2px; right: 2px;
+        width: auto;
+      }
+      .ars-row td:nth-of-type(2)::before { content: 'Particulars'; }
+      .ars-row td:nth-of-type(3)::before { content: 'Cash / Cheque'; }
+      .ars-row td:nth-of-type(4)::before { content: 'Amount (৳)'; }
+      .ars-row td:nth-of-type(2)::before,
+      .ars-row td:nth-of-type(3)::before,
+      .ars-row td:nth-of-type(4)::before {
+        display: block;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--ink-soft);
+        margin-bottom: 2px;
+      }
+      .ars-row input.amt, .ars-row input.cash { text-align: left; }
+    }
+  </style>
+
+  <div class="ars-card">
+    <!-- ===================== HEADER ===================== -->
+    <div class="ars-head">
+      <div class="ars-head-top">
+        <div>
+          <p class="ars-company">YOUR COMPANY NAME LIMITED</p>
+          <p class="ars-subtitle">Requisition Slip</p>
+        </div>
+        <span class="ars-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l1.8 4.2L18 8l-4.2 1.8L12 14l-1.8-4.2L6 8l4.2-1.8L12 2z"/><path d="M19 14l.9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9L19 14z"/></svg>
+          AI Requisition Slip
+        </span>
+      </div>
+      <div class="ars-formtitle">Office Requisition &amp; Disbursement Form</div>
+    </div>
+
+    <!-- ===================== BODY ===================== -->
+    <div class="ars-body">
+
+      <div class="ars-primary-grid">
+        <div class="ars-field">
+          <label for="ars-recipient">Recipient</label>
+          <input type="text" id="ars-recipient" placeholder="Name of recipient">
+        </div>
+        <div class="ars-field">
+          <label for="ars-date">Date</label>
+          <input type="date" id="ars-date">
+        </div>
+      </div>
+
+      <button class="ars-advanced-toggle" id="ars-advanced-toggle" type="button" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 9l6 6 6-6"/></svg>
+        File No. / Suit No. / Vessel Name
+      </button>
+
+      <div class="ars-advanced-panel" id="ars-advanced-panel">
+        <div class="ars-field">
+          <label for="ars-fileno">File No.</label>
+          <input type="text" id="ars-fileno" placeholder="e.g. 26/2026">
+        </div>
+        <div class="ars-field">
+          <label for="ars-suitno">Suit No.</label>
+          <input type="text" id="ars-suitno" placeholder="If applicable">
+        </div>
+        <div class="ars-field">
+          <label for="ars-vessel">Vessel Name</label>
+          <input type="text" id="ars-vessel" placeholder="e.g. MV Blue Voyage">
+        </div>
+      </div>
+
+      <!-- ===================== TABLE ===================== -->
+      <div class="ars-table-wrap">
+        <table class="ars-table">
+          <thead>
+            <tr>
+              <th style="width:26px;"></th>
+              <th>Particulars</th>
+              <th class="num" style="width:130px;">Cash / Cheque</th>
+              <th class="num" style="width:120px;">Amount (৳)</th>
+              <th style="width:30px;"></th>
+            </tr>
+          </thead>
+          <tbody id="ars-tbody"><!-- rows injected by JS --></tbody>
+        </table>
+      </div>
+
+      <button class="ars-addrow" id="ars-addrow" type="button">+ Add line</button>
+
+      <div class="ars-totals-row">
+        <div class="ars-total-box">
+          <div class="ars-total-label">Total</div>
+          <div class="ars-total-value" id="ars-total">৳ 0</div>
+        </div>
+      </div>
+
+      <div class="ars-inwords">
+        <div class="ars-inwords-label">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l1.8 4.2L18 8l-4.2 1.8L12 14l-1.8-4.2L6 8l4.2-1.8L12 2z"/></svg>
+          In Words (auto-generated)
+        </div>
+        <div class="ars-inwords-text" id="ars-inwords">Taka Zero Only</div>
+      </div>
+
+      <div class="ars-sign-row">
+        <div class="ars-sign-block">
+          <div class="ars-sign-space"></div>
+          <div class="ars-sign-label">Prepared By</div>
+        </div>
+        <div class="ars-sign-block">
+          <div class="ars-sign-space"></div>
+          <div class="ars-sign-label">Approved By</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ===================== ACTION BAR ===================== -->
+    <div class="ars-actionbar">
+      <span class="ars-status" id="ars-status"></span>
+      <button class="ars-btn ghost" id="ars-clearbtn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m3 0l-1 14a1 1 0 01-1 1H6a1 1 0 01-1-1L4 6"/></svg>
+        Clear form
+      </button>
+      <button class="ars-btn secondary" id="ars-printbtn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a1 1 0 01-1-1v-5a1 1 0 011-1h16a1 1 0 011 1v5a1 1 0 01-1 1h-2M6 14h12v8H6v-8z"/></svg>
+        Print
+      </button>
+      <button class="ars-btn primary" id="ars-pdfbtn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+        Download PDF
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<script>
+(function () {
+  var root = document.getElementById('ars-root');
+  var tbody = document.getElementById('ars-tbody');
+  var rowSeq = 0;
+
+  // ---------- Number to Words (Bangladeshi Taka, Indian numbering) ----------
+  function numberToWords(num) {
+    num = Math.round(num);
+    if (num === 0) return 'Zero';
+    var ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+      'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+    var tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+    function twoDigits(n) {
+      if (n < 20) return ones[n];
+      return tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : '');
+    }
+    function threeDigits(n) {
+      var h = Math.floor(n / 100), r = n % 100;
+      var out = '';
+      if (h) out += ones[h] + ' Hundred';
+      if (r) out += (out ? ' ' : '') + twoDigits(r);
+      return out;
+    }
+
+    var crore = Math.floor(num / 10000000); num %= 10000000;
+    var lakh = Math.floor(num / 100000); num %= 100000;
+    var thousand = Math.floor(num / 1000); num %= 1000;
+    var rest = num;
+
+    var parts = [];
+    if (crore) parts.push(threeDigits(crore) + ' Crore');
+    if (lakh) parts.push(threeDigits(lakh) + ' Lakh');
+    if (thousand) parts.push(threeDigits(thousand) + ' Thousand');
+    if (rest) parts.push(threeDigits(rest));
+
+    return parts.join(' ').replace(/\s+/g, ' ').trim();
+  }
+
+  function amountToWords(amount) {
+    amount = parseFloat(amount) || 0;
+    var taka = Math.floor(amount);
+    var poisha = Math.round((amount - taka) * 100);
+    var words = 'Taka ' + numberToWords(taka);
+    if (poisha > 0) words += ' and ' + numberToWords(poisha) + ' Poisha';
+    return words + ' Only';
+  }
+
+  // ---------- Row template ----------
+  function rowHTML(id) {
+    return (
+      '<tr class="ars-row" data-id="' + id + '">' +
+        '<td class="ars-rownum">' + id + '</td>' +
+        '<td><input type="text" class="particular" placeholder="Description"></td>' +
+        '<td><input type="text" class="cash" placeholder="0"></td>' +
+        '<td><input type="number" class="amt" placeholder="0" step="0.01" min="0"></td>' +
+        '<td class="ars-delcell"><button class="ars-delbtn" type="button" title="Remove line">&times;</button></td>' +
+      '</tr>'
+    );
+  }
+
+  function addRow() {
+    rowSeq++;
+    var wrap = document.createElement('tbody');
+    wrap.innerHTML = rowHTML(rowSeq);
+    var node = wrap.firstElementChild;
+    tbody.appendChild(node);
+    bindRowEvents(node);
+    return node;
+  }
+
+  function bindRowEvents(tr) {
+    tr.querySelector('.amt').addEventListener('input', recalc);
+    tr.querySelector('.ars-delbtn').addEventListener('click', function () {
+      if (tbody.children.length <= 1) {
+        tr.querySelectorAll('input').forEach(function (i) { i.value = ''; });
+        recalc();
+        return;
+      }
+      tr.remove();
+      renumberRows();
+      recalc();
+    });
+  }
+
+  function renumberRows() {
+    Array.prototype.forEach.call(tbody.children, function (tr, i) {
+      tr.querySelector('.ars-rownum').textContent = i + 1;
+    });
+  }
+
+  function recalc() {
+    var total = 0;
+    Array.prototype.forEach.call(tbody.querySelectorAll('.amt'), function (input) {
+      var v = parseFloat(input.value);
+      if (!isNaN(v)) total += v;
+    });
+    document.getElementById('ars-total').textContent = '৳ ' + total.toLocaleString('en-BD', { maximumFractionDigits: 2 });
+    document.getElementById('ars-inwords').textContent = amountToWords(total);
+    setStatus('');
+  }
+
+  // ---------- Advanced fields collapse/expand ----------
+  var advToggle = document.getElementById('ars-advanced-toggle');
+  var advPanel = document.getElementById('ars-advanced-panel');
+  advToggle.addEventListener('click', function () {
+    var open = advPanel.classList.toggle('open');
+    advToggle.classList.toggle('open', open);
+    advToggle.setAttribute('aria-expanded', open);
+  });
+
+  // ---------- Add row button ----------
+  document.getElementById('ars-addrow').addEventListener('click', addRow);
+
+  // ---------- Default date ----------
+  (function setToday() {
+    var d = new Date();
+    var iso = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    document.getElementById('ars-date').value = iso;
+  })();
+
+  // ---------- Clear form ----------
+  document.getElementById('ars-clearbtn').addEventListener('click', function () {
+    if (!confirm('Clear all fields on this requisition slip?')) return;
+    document.getElementById('ars-recipient').value = '';
+    document.getElementById('ars-fileno').value = '';
+    document.getElementById('ars-suitno').value = '';
+    document.getElementById('ars-vessel').value = '';
+    tbody.innerHTML = '';
+    rowSeq = 0;
+    addRow();
+    addRow();
+    recalc();
+    setStatus('Form cleared');
+  });
+
+  // ---------- Print: build a clean standalone document in a hidden
+  // iframe, independent of the host page's theme/layout CSS, then print
+  // just that iframe. This avoids Elementor's wrapper, page title, URL
+  // footer, and any CSS conflicts showing up in the printout. ----------
+  function collectRows() {
+    var rows = [];
+    Array.prototype.forEach.call(tbody.querySelectorAll('.ars-row'), function (tr) {
+      var particular = tr.querySelector('.particular').value.trim();
+      var cash = tr.querySelector('.cash').value.trim();
+      var amt = tr.querySelector('.amt').value.trim();
+      if (particular || cash || amt) {
+        rows.push({ particular: particular, cash: cash, amt: amt });
+      }
+    });
+    return rows;
+  }
+
+  function escapeHtml(str) {
+    return String(str || '').replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function buildPrintDocument() {
+    var recipient = escapeHtml(document.getElementById('ars-recipient').value);
+    var dateRaw = document.getElementById('ars-date').value;
+    var dateDisplay = dateRaw ? new Date(dateRaw + 'T00:00:00').toLocaleDateString('en-GB') : '';
+    var fileNo = escapeHtml(document.getElementById('ars-fileno').value);
+    var suitNo = escapeHtml(document.getElementById('ars-suitno').value);
+    var vessel = escapeHtml(document.getElementById('ars-vessel').value);
+    var rows = collectRows();
+    var total = document.getElementById('ars-total').textContent;
+    var inWords = escapeHtml(document.getElementById('ars-inwords').textContent);
+
+    var rowsHtml = rows.map(function (r) {
+      return '<tr><td>' + escapeHtml(r.particular) + '</td>' +
+        '<td class="num">' + escapeHtml(r.cash) + '</td>' +
+        '<td class="num">' + escapeHtml(r.amt) + '</td></tr>';
+    }).join('');
+    if (!rowsHtml) rowsHtml = '<tr><td>&nbsp;</td><td class="num"></td><td class="num"></td></tr>';
+
+    var metaExtra = '';
+    if (fileNo) metaExtra += '<div class="meta-item"><span class="meta-label">File No.</span><span>' + fileNo + '</span></div>';
+    if (suitNo) metaExtra += '<div class="meta-item"><span class="meta-label">Suit No.</span><span>' + suitNo + '</span></div>';
+    if (vessel) metaExtra += '<div class="meta-item"><span class="meta-label">Vessel Name</span><span>' + vessel + '</span></div>';
+
+    return '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Requisition Slip</title><style>' +
+      '@page { size: A4; margin: 16mm; }' +
+      '* { box-sizing: border-box; }' +
+      'body { font-family: Arial, Helvetica, sans-serif; color: #182428; margin: 0; padding: 0; }' +
+      '.head { background: #2596be; color: #fff; padding: 18px 22px; }' +
+      '.head h1 { margin: 0; font-size: 17px; letter-spacing: 0.4px; }' +
+      '.head .sub { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; margin-top: 3px; opacity: 0.92; }' +
+      '.head .formtitle { font-size: 11.5px; font-weight: bold; letter-spacing: 0.8px; text-transform: uppercase; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.35); padding-top: 8px; }' +
+      '.meta { display: flex; flex-wrap: wrap; gap: 10px 26px; padding: 16px 22px 4px; }' +
+      '.meta-item { display: flex; flex-direction: column; font-size: 12.5px; min-width: 140px; }' +
+      '.meta-label { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.5px; color: #5b6b72; font-weight: bold; margin-bottom: 2px; }' +
+      'table { width: 100%; border-collapse: collapse; margin: 16px 0 0; font-size: 12px; }' +
+      'thead th { background: #eaf5f9; color: #19708e; text-transform: uppercase; font-size: 10px; letter-spacing: 0.4px; text-align: left; padding: 7px 8px; border-bottom: 2px solid #2596be; }' +
+      'thead th.num { text-align: right; }' +
+      'tbody td { padding: 9px 8px; border-bottom: 1px solid #e3ebed; }' +
+      'tbody td.num { text-align: right; }' +
+      '.totals { display: flex; justify-content: flex-end; padding: 12px 8px 4px; border-top: 2px solid #2596be; }' +
+      '.totals .box { text-align: right; }' +
+      '.totals .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #5b6b72; font-weight: bold; }' +
+      '.totals .value { font-size: 19px; font-weight: bold; color: #19708e; margin-top: 2px; }' +
+      '.inwords { margin: 14px 22px 0; padding: 10px 12px; background: #eaf5f9; border: 1px solid #cfe6ee; font-size: 12px; font-style: italic; }' +
+      '.inwords .label { font-size: 9.5px; font-style: normal; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; color: #19708e; margin-bottom: 4px; display: block; }' +
+      '.signrow { display: flex; gap: 60px; margin: 56px 22px 20px; }' +
+      '.signblock { flex: 1; }' +
+      '.signspace { height: 60px; border-bottom: 1px solid #182428; }' +
+      '.signlabel { font-size: 10px; font-weight: bold; letter-spacing: 0.5px; text-transform: uppercase; color: #5b6b72; margin-top: 6px; }' +
+      '.bodypad { padding: 0 22px; }' +
+      '</style></head><body>' +
+      '<div class="head"><h1>YOUR COMPANY NAME LIMITED</h1><div class="sub">Requisition Slip</div>' +
+      '<div class="formtitle">Office Requisition &amp; Disbursement Form</div></div>' +
+      '<div class="meta">' +
+        '<div class="meta-item"><span class="meta-label">Recipient</span><span>' + (recipient || '&nbsp;') + '</span></div>' +
+        '<div class="meta-item"><span class="meta-label">Date</span><span>' + (dateDisplay || '&nbsp;') + '</span></div>' +
+        metaExtra +
+      '</div>' +
+      '<div class="bodypad"><table><thead><tr><th>Particulars</th><th class="num">Cash / Cheque</th><th class="num">Amount (৳)</th></tr></thead>' +
+      '<tbody>' + rowsHtml + '</tbody></table>' +
+      '<div class="totals"><div class="box"><div class="label">Total</div><div class="value">' + escapeHtml(total) + '</div></div></div></div>' +
+      '<div class="inwords"><span class="label">In Words (auto-generated)</span>' + inWords + '</div>' +
+      '<div class="signrow">' +
+        '<div class="signblock"><div class="signspace"></div><div class="signlabel">Prepared By</div></div>' +
+        '<div class="signblock"><div class="signspace"></div><div class="signlabel">Approved By</div></div>' +
+      '</div>' +
+      '</body></html>';
+  }
+
+  document.getElementById('ars-printbtn').addEventListener('click', function () {
+    var iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+
+    var doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(buildPrintDocument());
+    doc.close();
+
+    iframe.onload = function () {
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } catch (e) {
+        console.error(e);
+      }
+      setTimeout(function () { document.body.removeChild(iframe); }, 1000);
+    };
+  });
+
+  // ---------- PDF export (kept small: JPEG @ moderate scale + compression) ----------
+  document.getElementById('ars-pdfbtn').addEventListener('click', function () {
+    var btn = this;
+    var card = root.querySelector('.ars-card');
+    var original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = 'Generating…';
+
+    var actionbar = root.querySelector('.ars-actionbar');
+    var addrowBtn = root.querySelector('.ars-addrow');
+    var advBtn = root.querySelector('.ars-advanced-toggle');
+    var delCells = root.querySelectorAll('.ars-delcell');
+    var rowNums = root.querySelectorAll('.ars-rownum');
+    var hidden = [actionbar, addrowBtn, advBtn];
+    hidden.forEach(function (el) { if (el) el.style.display = 'none'; });
+    delCells.forEach(function (el) { el.style.visibility = 'hidden'; });
+    rowNums.forEach(function (el) { el.style.visibility = 'hidden'; });
+
+    // scale 1.5 keeps text crisp without ballooning file size; JPEG + quality
+    // compression cuts the output to a few hundred KB instead of ~10MB PNG.
+    html2canvas(card, { scale: 1.5, useCORS: true, backgroundColor: '#ffffff' }).then(function (canvas) {
+      var imgData = canvas.toDataURL('image/jpeg', 0.82);
+      var jsPDFCtor = window.jspdf ? window.jspdf.jsPDF : window.jsPDF;
+      var pdf = new jsPDFCtor({ orientation: 'p', unit: 'pt', format: 'a4', compress: true });
+      var pageWidth = pdf.internal.pageSize.getWidth();
+      var pageHeight = pdf.internal.pageSize.getHeight();
+      var imgWidth = pageWidth - 40;
+      var imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      if (imgHeight <= pageHeight - 40) {
+        pdf.addImage(imgData, 'JPEG', 20, 20, imgWidth, imgHeight, undefined, 'FAST');
+      } else {
+        var remaining = canvas.height;
+        var position = 0;
+        var pageCanvasHeightPx = ((pageHeight - 40) * canvas.width) / imgWidth;
+        while (remaining > 0) {
+          var sliceHeight = Math.min(pageCanvasHeightPx, remaining);
+          var sliceCanvas = document.createElement('canvas');
+          sliceCanvas.width = canvas.width;
+          sliceCanvas.height = sliceHeight;
+          var ctx = sliceCanvas.getContext('2d');
+          ctx.drawImage(canvas, 0, position, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight);
+          var sliceData = sliceCanvas.toDataURL('image/jpeg', 0.82);
+          var sliceImgHeight = (sliceHeight * imgWidth) / canvas.width;
+          if (position > 0) pdf.addPage();
+          pdf.addImage(sliceData, 'JPEG', 20, 20, imgWidth, sliceImgHeight, undefined, 'FAST');
+          remaining -= sliceHeight;
+          position += sliceHeight;
+        }
+      }
+
+      var recipient = (document.getElementById('ars-recipient').value || 'requisition').trim().replace(/\s+/g, '_');
+      var dateVal = document.getElementById('ars-date').value || '';
+      pdf.save('Requisition_' + recipient + (dateVal ? '_' + dateVal : '') + '.pdf');
+
+      hidden.forEach(function (el) { if (el) el.style.display = ''; });
+      delCells.forEach(function (el) { el.style.visibility = ''; });
+      rowNums.forEach(function (el) { el.style.visibility = ''; });
+      btn.disabled = false;
+      btn.innerHTML = original;
+      setStatus('PDF downloaded', true);
+    }).catch(function (err) {
+      hidden.forEach(function (el) { if (el) el.style.display = ''; });
+      delCells.forEach(function (el) { el.style.visibility = ''; });
+      rowNums.forEach(function (el) { el.style.visibility = ''; });
+      btn.disabled = false;
+      btn.innerHTML = original;
+      setStatus('PDF generation failed — try Print instead');
+      console.error(err);
+    });
+  });
+
+  function setStatus(msg, saved) {
+    var el = document.getElementById('ars-status');
+    el.textContent = msg;
+    el.classList.toggle('saved', !!saved);
+  }
+
+  // ---------- Wire up live recalculation ----------
+  tbody.addEventListener('input', function (e) {
+    if (e.target.classList.contains('amt')) recalc();
+  });
+
+  // ---------- Init ----------
+  addRow();
+  addRow();
+  recalc();
+  // ---------- Demo sample data (fictional) ----------
+  (function loadDemo() {
+    document.getElementById('ars-recipient').value = 'Sample Recipient';
+    var rows = tbody.querySelectorAll('.ars-row');
+    var data = [['Morning snacks', '60', '60'], ['Transport', '1040', '1040'], ['Lunch', '770', '770'], ['Return transport', '56', '56']];
+    while (tbody.querySelectorAll('.ars-row').length < data.length) addRow();
+    rows = tbody.querySelectorAll('.ars-row');
+    data.forEach(function (d, i) {
+      rows[i].querySelector('.particular').value = d[0];
+      rows[i].querySelector('.cash').value = d[1];
+      rows[i].querySelector('.amt').value = d[2];
+    });
+    recalc();
+  })();
+})();
+</script>
+
+</body>
+</html>
