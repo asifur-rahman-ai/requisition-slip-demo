@@ -4,7 +4,7 @@ A single-file, client-side **requisition slip generator**. It replaces two
 paper slip formats with one smart web form: fill it in, get the total and the
 amount in words automatically, then print it or save it as a PDF.
 
-**[▶ Live demo](https://YOUR-USERNAME.github.io/YOUR-REPO/)**
+**[▶ Live demo](https://YOUR-USERNAME.github.io/requisition-slip-demo/)**
 &nbsp;·&nbsp; all data in the demo is fictional.
 
 <!-- Optional: add a screenshot to /screenshots and uncomment
