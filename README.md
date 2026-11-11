@@ -1,121 +1,84 @@
-# Team File Share
+# AI Requisition Slip
 
-A drag-and-drop file sharing interface for small teams, with instant preview, upload progress, and per-file timestamps. Built with plain HTML, CSS and JavaScript — no frameworks, no build step.
+A single-file, client-side **requisition slip generator**. It replaces two
+paper slip formats with one smart web form: fill it in, get the total and the
+amount in words automatically, then print it or save it as a PDF.
 
-**Live demo:** https://asifur-rahman-ai.github.io/team-file-share/
-*(update the repo name in the URL if you name it differently)*
+**[▶ Live demo](https://asifur-rahman-ai.github.io/requisition-slip-demo/)**
+&nbsp;·&nbsp; all data in the demo is fictional.
 
-**More demos:** [AI Requisition Slip](https://asifur-rahman-ai.github.io/requisition-slip-demo/) — a requisition form generator with auto amount-in-words, print and PDF export.
-
-> **Demo mode:** the hosted version runs entirely in your browser. Files you drop are never uploaded anywhere and disappear when you refresh. All names and sample files are fictional.
-
----
+<!-- Optional: add a screenshot to /screenshots and uncomment
+![Preview](screenshots/preview.png)
+-->
 
 ## Features
 
-- **One box per person** — drag a file onto someone's card, or click to browse
-- **Multi-file upload** with a live progress toast for each file
-- **Instant preview** — images and PDFs open in a modal; other types show a clear fallback
-- **Serial numbers and timestamps** — `#1, #2, …` in upload order, with "Today / Yesterday / date" times
-- **Delete your own uploads** — the delete button only appears on files added in the current session
-- **Fully responsive** — works on phone, tablet and desktop; long file names truncate cleanly
-- **Keyboard friendly** — `Esc` closes the preview
+- **One form, two use cases** — Recipient and Date are always visible; an
+  expandable section adds File No., Suit No. and Vessel Name for case-based
+  requisitions
+- **Dynamic particulars table** — add or remove line items, each with a
+  cash/cheque reference and an amount
+- **Live total** — recalculated as you type
+- **Amount in words** — generated automatically, using Crore / Lakh /
+  Thousand grouping (e.g. *Taka One Thousand Nine Hundred Twenty Six Only*)
+- **Print** — builds a clean, standalone print document in a hidden iframe,
+  so the printout contains only the slip and never the surrounding page
+- **Download PDF** — client-side export (html2canvas + jsPDF), JPEG
+  compressed so files stay small
+- **Responsive** — the particulars table turns into stacked cards on phones
+- **Design** — sharp-edged, glassmorphism-inspired UI with a single accent
+  colour (`#2596be`)
 
-## Tech stack
+## Privacy
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | Vanilla HTML / CSS / JavaScript, single file |
-| Styling | CSS variables, glass-style cards, sharp corners, system font stack |
-| Demo storage | In-memory JS object + `URL.createObjectURL` |
-| Reference backend | PHP 7.4+ (4 small endpoints) |
+Everything runs in the browser. There is no backend, no database, no
+analytics and no network request carrying your input. Refreshing the page
+clears the form.
 
-## Repository structure
+## Tech
 
-```
-team-file-share/
-├── index.html            ← the complete demo (open it directly or host on GitHub Pages)
-├── backend-reference/
-│   ├── api/
-│   │   ├── config.php    ← people list, limits, shared helpers
-│   │   ├── upload.php    ← POST   person + file          → { success, filename, size }
-│   │   ├── list.php      ← GET    ?person=               → { success, files: [...] }
-│   │   ├── download.php  ← GET    ?person=&file=         → file stream
-│   │   └── delete.php    ← POST   person + file          → { success }
-│   └── storage/
-│       └── .htaccess     ← blocks direct browser access to stored files
-└── README.md
-```
+- Plain HTML, CSS and vanilla JavaScript — one file, no build step
+- [jsPDF](https://github.com/parallax/jsPDF) `2.5.1` and
+  [html2canvas](https://github.com/niklasvh/html2canvas) `1.4.1`, loaded from
+  cdnjs (only needed for *Download PDF*; *Print* works without them)
 
 ## Run locally
 
-No install needed.
+Open `index.html` in any modern browser. No install required.
 
-```bash
-git clone https://github.com/asifur-rahman-ai/team-file-share.git
-cd team-file-share
-open index.html        # or just double-click the file
-```
+## Use it inside WordPress / Elementor
 
-## Deploy to GitHub Pages
+1. Open `index.html` and copy everything from `<div id="ars-root">` down to
+   the final `</script>` (leave out the `<html>`, `<head>` and `<body>` tags
+   and the demo banner).
+2. In Elementor, add a **Custom HTML** widget and paste it in.
+3. Replace `YOUR COMPANY NAME LIMITED` with your organisation's name — there
+   are two places: the page header and the print template. Also change the
+   PDF filename prefix near `pdf.save(`.
 
-1. Push this repository to GitHub
-2. **Settings → Pages**
-3. Source: **Deploy from a branch** → branch `main`, folder `/ (root)` → **Save**
-4. After a minute the site is live at `https://<your-username>.github.io/<repo-name>/`
+All styles are scoped under `#ars-root` and use `!important` on text colours,
+so theme styles don't override them.
 
-GitHub Pages serves static files only, so it can run the demo but not the PHP backend.
+## Customise
 
-## How the demo differs from the full version
+| What | Where |
+|---|---|
+| Accent colour | `--accent` / `--accent-dark` at the top of the `<style>` block |
+| Company name | Header markup, print template, PDF filename |
+| Signature space | `.ars-sign-space` height |
+| Currency wording | `amountToWords()` |
 
-| | Demo (this page) | Full version |
-|---|---|---|
-| Storage | Browser memory | Server filesystem |
-| Upload | Simulated progress, no network | Real `XMLHttpRequest` with progress events |
-| Who sees the files | Only you | Everyone using the page |
-| Delete permission | Files added in this session | Files uploaded from the same browser |
-| Refresh | Files are lost | Files persist; list auto-refreshes |
+## Roadmap
 
-## Backend reference (self-hosting)
+- Optional auto-save of submitted slips (Google Sheets via Apps Script)
+- Saved history / reprint of earlier slips
 
-`backend-reference/` contains the PHP endpoints the full version talks to. To self-host:
+## Hosting on GitHub Pages
 
-1. Upload `backend-reference/` to any PHP 7.4+ host
-2. Edit the people list in `api/config.php` (IDs must match the IDs in the frontend)
-3. Make sure `storage/` is writable by PHP (permissions `775`)
-4. Point the frontend at your API base URL and swap the simulated upload/list/delete functions for `fetch` / `XMLHttpRequest` calls to the endpoints above
+This demo is served with GitHub Pages straight from the `main` branch
+(`Settings → Pages → Deploy from a branch → main / (root)`):
 
-**Built-in safeguards**
+<https://asifur-rahman-ai.github.io/requisition-slip-demo/>
 
-- Filename sanitising and path-traversal protection on every endpoint
-- Executable types (`.php`, `.exe`, `.sh`, …) are rejected at upload
-- `storage/.htaccess` denies direct URL access, so every download goes through `download.php`
-- Server-side file size limit
-
-## Design notes
-
-- Accent colour `#2596be` on a deep navy background
-- Cards use a subtle backdrop blur (kept low for performance on mobile)
-- Initial data loading is deferred until after first paint, and polling pauses when the tab is hidden (full version)
-- Layout uses flexible card heights rather than fixed ones, so long file lists never break the grid on small screens
-
-## Limitations and ideas
-
-- No authentication — the full version relies on the page URL staying private. For anything sensitive, add real login and server-side ownership checks.
-- Delete ownership in the full version is tracked client-side, so it is a convenience, not a security boundary.
-- Possible next steps: cloud storage integration (e.g. S3 or Microsoft Graph), folder-level permissions, virus scanning, expiring links.
-
-## More projects
-
-Part of a small set of single-file web tools built with the same approach (vanilla HTML/CSS/JS, no build step, mobile responsive, shared visual style).
-
-| Project | What it does | Demo |
-|---------|--------------|------|
-| **Team File Share** (this repo) | Drag-and-drop file sharing with preview, progress and timestamps | [Open](https://asifur-rahman-ai.github.io/team-file-share/) |
-| **AI Requisition Slip** | Requisition and disbursement form with automatic amount-in-words, print and PDF download | [Open](https://asifur-rahman-ai.github.io/requisition-slip-demo/) |
-
-All demos use fictional data and run entirely in the browser.
-
-## License
-
-Add a license of your choice (MIT is a common default for portfolio projects).
+To publish your own copy, fork or clone the repo, enable Pages the same way,
+and your site will be available at `https://<username>.github.io/<repo>/`.
